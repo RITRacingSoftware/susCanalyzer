@@ -2,20 +2,18 @@
 #include <SPI.h>
 #include "susCanalyzer.h"
 #include "ghettoDBC.h"
-#define CAN_2515
-// For Arduino MCP2515 Hat:
+#include "mcp2515_can.h"
+
+// For Arduino MCP2515 seeed Hat:
 // the cs pin of the version after v1.1 is default to D9
 // v0.9b and v1.0 is default D10
+
+
+
 const int SPI_CS_PIN = 9;
 const int CAN_INT_PIN = 2;
-
-#ifdef CAN_2515
-#include "mcp2515_can.h"
 mcp2515_can CAN(SPI_CS_PIN); // Set CS pin
-#endif
 
-const int LED        = 8;
-boolean ledON        = 1;
 ///// can messages we care about 
 int canIDwatch[7] = {
 702, //BMS Voltages
@@ -27,16 +25,17 @@ int canIDwatch[7] = {
 950 //BMS hard fault indi
 };
 /////
+CAN_msg msg(0x12E, 8, nullptr);  // Create an instance of the CAN_msg class
+CAN_msg BMS_Voltages(702, 8, nullptr);
+/////
 
 void setup() {
-    SERIAL_PORT_MONITOR.begin(115200);
-    pinMode(LED, OUTPUT);
-
+    Serial.begin(115200);
     while (CAN_OK != CAN.begin(CAN_1000KBPS)) {             // init can bus : baudrate = 500k
-        SERIAL_PORT_MONITOR.println("CAN init fail, retry...");
-        delay(100);
+        Serial.println("Init fail is hat on");
+        delay(1000);
     }
-    SERIAL_PORT_MONITOR.println("CAN init ok!");
+    Serial.println("Initialization complete");
 }
 
 int counter = 0;
@@ -52,54 +51,20 @@ void loop() {
         counter++;
         unsigned long canID = CAN.getCanId();
 
-        //SERIAL_PORT_MONITOR.println("-----------------------------");
-        /*
-        SERIAL_PORT_MONITOR.print("get data from ID: 0x");
-        SERIAL_PORT_MONITOR.print(canId, HEX);
-        Serial.print(" data:");
-        */
         //forloop if length of canmsgids we care about loop through (canId == msgid[i]) etc
-        if(canID == 0x12E){
-          SERIAL_PORT_MONITOR.print("get data from ID: 0x");
-          SERIAL_PORT_MONITOR.print(canID, HEX);
+        if(msg.getID() == 0x12E){
+          const uint8_t* msgData = msg.getData(); 
+
+          Serial.print("Message ID: 0x");
+          Serial.print(msg.getID(), HEX);
           Serial.print(" data:");
-        
-            for (int i = 0; i < len; i++) { // print the data
-            SERIAL_PORT_MONITOR.print(buf[i]);
-            SERIAL_PORT_MONITOR.print(" ");//("\t");
-            if (ledON && i == 0) {
-
-                digitalWrite(LED, buf[i]);
-                ledON = 0;
-                //delay(500);
-            } else if ((!(ledON)) && i == 4) {
-
-                digitalWrite(LED, buf[i]);
-                ledON = 1;
-            }
-          //SERIAL_PORT_MONITOR.println();
+            for (int i = 0; i < msg.getLength(); i++) { // get length from msg the data
+            Serial.print(msgData[i]);
+            Serial.print(" ");//("\t");
+            
+          //Serial.println();
         }
-        SERIAL_PORT_MONITOR.println();
+        Serial.println();
       }
-        
-        /*
-        for (int i = 0; i < len; i++) { // print the data
-            SERIAL_PORT_MONITOR.print(buf[i]);
-            SERIAL_PORT_MONITOR.print(" ");//("\t");
-            if (ledON && i == 0) {
-
-                digitalWrite(LED, buf[i]);
-                ledON = 0;
-                //delay(500);
-            } else if ((!(ledON)) && i == 4) {
-
-                digitalWrite(LED, buf[i]);
-                ledON = 1;
-            }
-        }
-        */
-        //SERIAL_PORT_MONITOR.println();
     }
 }
-
-//END FILE
